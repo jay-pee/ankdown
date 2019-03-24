@@ -33,7 +33,7 @@ Second Card Back (note that tags are optional)
 ```
 
 Usage:
-    ankdown.py [-r DIR] [-p PACKAGENAME] [--css CSS_STRING]
+    ankdown.py [-r DIR] [-p PACKAGENAME] [--css CSS_STRING] [--dollar]
 
 Options:
     -h --help     Show this help message
@@ -44,6 +44,8 @@ Options:
     -p PACKAGE    Instead of a .txt file, produce a .apkg file. recommended.
 
     --css CSS_STRING   CSS Config as String
+
+    --dollar    Uses dollar sign as math separator instead of brackets
 """
 
 
@@ -61,6 +63,7 @@ import genanki
 from docopt import docopt
 
 VERSION = "0.5.2"
+FLAG_DOLLAR = False
 
 def simple_hash(text):
     """MD5 of text, mod 2^63. Probably not a great hash function."""
@@ -210,11 +213,18 @@ class DeckCollection(dict):
         return super(DeckCollection, self).__getitem__(deckname)
 
 def field_to_html(field):
-    # Need to extract the math in brackets so that it doesn't get
-    # markdowned.
-    for bracket in ["(", ")", "[", "]"]:
-        field = field.replace(r"\{}".format(bracket), r"\\{}".format(bracket))
-        # backslashes, man.
+    """Need to extract the math in brackets so that it doesn't get markdowned.
+    If math is separated with dollar sign it is converted to brackets."""
+    if FLAG_DOLLAR:
+        for sep_dollar, sep_bracket in zip(["$", "$$"], [[r"\\(", r"\\)"], [r"\\[", r"\\]"]]):
+            field = field.split(sep_dollar)
+            field[1::2] = [sep_bracket[0] + e for e in field[1::2]] # add starting bracket to every second element of the list
+            field[2::2] = [sep_bracket[1] + e for e in field[2::2]] # add ending bracket to every other element of the list
+            field = "".join(field)
+    else:
+        for bracket in ["(", ")", "[", "]"]:
+            field = field.replace(r"\{}".format(bracket), r"\\{}".format(bracket))
+            # backslashes, man.
 
     return misaka.html(field, extensions=("fenced-code", "math"))
 
@@ -286,6 +296,8 @@ def main():
     """Run the thing."""
 
     arguments = docopt(__doc__, version=VERSION)
+    global FLAG_DOLLAR
+    FLAG_DOLLAR = arguments.get('--dollar')
     css_config = arguments.get('--css')
     if css_config is not None:
         Card.MODEL_CSS = css_config
