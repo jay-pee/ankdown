@@ -216,10 +216,12 @@ def field_to_html(field):
     """Need to extract the math in brackets so that it doesn't get markdowned.
     If math is separated with dollar sign it is converted to brackets."""
     if FLAG_DOLLAR:
-        for sep_dollar, sep_bracket in zip(["$", "$$"], [[r"\\(", r"\\)"], [r"\\[", r"\\]"]]):
-            field = field.split(sep_dollar)
-            field[1::2] = [sep_bracket[0] + e for e in field[1::2]] # add starting bracket to every second element of the list
-            field[2::2] = [sep_bracket[1] + e for e in field[2::2]] # add ending bracket to every other element of the list
+        for (sep, (op, cl)) in [("$$", (r"\\[", r"\\]")), ("$", (r"\\(", r"\\)"))]:
+            escaped_sep = sep.replace(r"$", r"\$")
+            # ignore escaped dollar signs when splitting the field    
+            field = re.split(r"(?<!\\){}".format(escaped_sep), field) 
+            # add op(en) and cl(osing) brackets to every second element of the list
+            field[1::2] = [op + e + cl for e in field[1::2]] 
             field = "".join(field)
     else:
         for bracket in ["(", ")", "[", "]"]:
